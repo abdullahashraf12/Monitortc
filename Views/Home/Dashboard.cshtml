@@ -1,0 +1,150 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic WebRTC Screen Sharing</title>
+    <style>
+        #videoContainer {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        video {
+            width: 300px;
+            height: 200px;
+            margin: 10px;
+            border: 2px solid black;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dynamic WebRTC Screen Sharing</h1>
+    <div id="videoContainer">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+    <button id="startButton">Start Video Conference</button>
+
+    <script src="~/js/signalr.min.js"></script>
+
+    <script>
+        let localStream;
+        let peerConnection;
+        const iceServers = [
+            { urls: "stun:stun.monitortc.com:3478" },
+            { urls: "turn:turn.monitortc.com:3478", username: "secret", credential: "9013" }
+        ];
+
+        const iceCandidateQueue = []; // Queue to store ICE candidates
+        let remoteDescriptionSet = false; // Flag to check if remoteDescription is set
+
+        // SignalR connection setup
+        const hubConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/webrtc")
+            .withAutomaticReconnect()
+            .build();
+
+        hubConnection.start()
+            .then(() => {
+                console.log("SignalR connected");
+                document.getElementById("startButton").disabled = false;
+                listenForOffers();
+            })
+            .catch(err => console.error("SignalR connection failed", err));
+
+        // Create RTCPeerConnection
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection({ iceServers });
+
+            // ICE Candidate handling
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    hubConnection.invoke("SendIceCandidate",hubConnection.connectionId, event.candidate)
+                        .catch(err => console.error("Error sending ICE candidate", err));
+                }
+            };
+
+            // Add remote track to video
+            peerConnection.ontrack = (event) => {
+                const remoteVideo = document.getElementById("remoteVideo");
+                remoteVideo.srcObject = event.streams[0];
+            };
+        }
+
+        // Start video conference
+        document.getElementById("startButton").onclick = () => {
+            navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+                .then(stream => {
+                    localStream = stream;
+                    document.getElementById("localVideo").srcObject = stream;
+                    createPeerConnection();
+
+                    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+                    peerConnection.createOffer()
+                        .then(offer => peerConnection.setLocalDescription(offer))
+                        .then(() => {
+                            hubConnection.invoke("SendOffer", hubConnection.connectionId, peerConnection.localDescription)
+                                .catch(err => console.error("Error sending offer", err));
+                        })
+                        .catch(err => console.error("Error creating offer", err));
+                })
+                .catch(err => console.error("Error accessing screen or audio", err));
+        };
+
+        // Handle incoming offer
+        function listenForOffers() {
+            hubConnection.on("ReceiveOffer", (peerid,offer) => {
+                console.log("Received offer:", offer);
+                createPeerConnection();
+
+                peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+                    .then(() => {
+                        remoteDescriptionSet = true;
+                        processIceCandidateQueue(); // Add queued ICE candidates
+                        return peerConnection.createAnswer();
+                    })
+                    .then(answer => peerConnection.setLocalDescription(answer))
+                    .then(() => {
+                        hubConnection.invoke("SendAnswer",hubConnection.connectionId, peerConnection.localDescription)
+                            .catch(err => console.error("Error sending answer", err));
+                    })
+                    .catch(err => console.error("Error handling offer", err));
+            });
+        }
+
+        // Handle incoming answer
+        hubConnection.on("ReceiveAnswer", (peerid,answer) => {
+            console.log("Received answer:", answer);
+            peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+                .then(() => {
+                    remoteDescriptionSet = true;
+                    processIceCandidateQueue(); // Add queued ICE candidates
+                })
+                .catch(err => console.error("Error setting remote description", err));
+        });
+
+        // Handle incoming ICE candidate
+        hubConnection.on("ReceiveIceCandidate", (peerid,candidate) => {
+            const iceCandidate = new RTCIceCandidate(candidate);
+            if (remoteDescriptionSet) {
+                peerConnection.addIceCandidate(iceCandidate)
+                    .catch(err => console.error("Error adding ICE candidate", err));
+            } else {
+                iceCandidateQueue.push(iceCandidate); // Queue ICE candidates
+            }
+        });
+
+        // Process queued ICE candidates
+        function processIceCandidateQueue() {
+            while (iceCandidateQueue.length > 0) {
+                const candidate = iceCandidateQueue.shift();
+                peerConnection.addIceCandidate(candidate)
+                    .catch(err => console.error("Error adding queued ICE candidate", err));
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+﻿
+@model MonitorRTC.Models.UserModel.UserModel
+
+@{
+    ViewData["Title"] = "Signup";
+}
+
+<div class="container mt-5">
+    <h2>Signup</h2>
+    <p class="text-danger">@ViewBag.ErrorMessage</p>
+    <form asp-action="Signup" method="post" class="mt-4">
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label">Name</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label">Email</label>
+            <input asp-for="Email" class="form-control" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label">Password</label>
+            <input asp-for="Password" class="form-control" type="password" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+        </div>
+        <button type="submit" class="btn btn-primary">Sign Up</button>
+        <a class="btn btn-link" href="@Url.Action("Login", "Home")">Already have an account? Login</a>
+    </form>
+</div>
