@@ -33,8 +33,8 @@
         let localStream;
         let peerConnection;
         const iceServers = [
-            { urls: "stun:stun.monitortc.com:3478" },
-            { urls: "turn:turn.monitortc.com:3478", username: "secret", credential: "9013" }
+            { urls: "stuns:stun.monitortc.com:3478", username: "secret", credential: "9013" },
+            { urls: "turns:turn.monitortc.com:5349", username: "secret", credential: "9013" }
         ];
 
         const iceCandidateQueue = []; // Queue to store ICE candidates
