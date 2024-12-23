@@ -31,7 +31,7 @@
 
     <script>
         let localStream;
-        let peerConnection;
+        const peerConnections = {};  // Dictionary to store peer connections
         const iceServers = [
             { urls: "stuns:stun.monitortc.com:3478", username: "secret", credential: "9013" },
             { urls: "turns:turn.monitortc.com:5349", username: "secret", credential: "9013" }
@@ -55,22 +55,25 @@
             .catch(err => console.error("SignalR connection failed", err));
 
         // Create RTCPeerConnection
-        function createPeerConnection() {
-            peerConnection = new RTCPeerConnection({ iceServers });
+        function createPeerConnection(peerid) {
+            const peer = new RTCPeerConnection({ iceServers });
 
             // ICE Candidate handling
-            peerConnection.onicecandidate = (event) => {
+            peer.onicecandidate = (event) => {
                 if (event.candidate) {
-                    hubConnection.invoke("SendIceCandidate",hubConnection.connectionId, event.candidate)
+                    hubConnection.invoke("SendIceCandidate", peerid, event.candidate)
                         .catch(err => console.error("Error sending ICE candidate", err));
                 }
             };
 
             // Add remote track to video
-            peerConnection.ontrack = (event) => {
+            peer.ontrack = (event) => {
                 const remoteVideo = document.getElementById("remoteVideo");
                 remoteVideo.srcObject = event.streams[0];
             };
+
+            peerConnections[peerid] = peer; // Store the peer connection by peerid
+            return peer;
         }
 
         // Start video conference
@@ -79,14 +82,14 @@
                 .then(stream => {
                     localStream = stream;
                     document.getElementById("localVideo").srcObject = stream;
-                    createPeerConnection();
 
-                    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+                    const peer = createPeerConnection(hubConnection.connectionId);  // Use connectionId as peerid
+                    stream.getTracks().forEach(track => peer.addTrack(track, stream));
 
-                    peerConnection.createOffer()
-                        .then(offer => peerConnection.setLocalDescription(offer))
+                    peer.createOffer()
+                        .then(offer => peer.setLocalDescription(offer))
                         .then(() => {
-                            hubConnection.invoke("SendOffer", hubConnection.connectionId, peerConnection.localDescription)
+                            hubConnection.invoke("SendOffer", hubConnection.connectionId, peer.localDescription)
                                 .catch(err => console.error("Error sending offer", err));
                         })
                         .catch(err => console.error("Error creating offer", err));
@@ -96,19 +99,24 @@
 
         // Handle incoming offer
         function listenForOffers() {
-            hubConnection.on("ReceiveOffer", (peerid,offer) => {
+            hubConnection.on("ReceiveOffer", (peerid, offer) => {
                 console.log("Received offer:", offer);
-                createPeerConnection();
 
-                peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+                // Create peer connection if it doesn't exist
+                let peer = peerConnections[peerid];
+                if (!peer) {
+                    peer = createPeerConnection(peerid);
+                }
+
+                peer.setRemoteDescription(new RTCSessionDescription(offer))
                     .then(() => {
                         remoteDescriptionSet = true;
-                        processIceCandidateQueue(); // Add queued ICE candidates
-                        return peerConnection.createAnswer();
+                        processIceCandidateQueue(peer); // Add queued ICE candidates
+                        return peer.createAnswer();
                     })
-                    .then(answer => peerConnection.setLocalDescription(answer))
+                    .then(answer => peer.setLocalDescription(answer))
                     .then(() => {
-                        hubConnection.invoke("SendAnswer",hubConnection.connectionId, peerConnection.localDescription)
+                        hubConnection.invoke("SendAnswer", peerid, peer.localDescription)
                             .catch(err => console.error("Error sending answer", err));
                     })
                     .catch(err => console.error("Error handling offer", err));
@@ -116,21 +124,33 @@
         }
 
         // Handle incoming answer
-        hubConnection.on("ReceiveAnswer", (peerid,answer) => {
+        hubConnection.on("ReceiveAnswer", (peerid, answer) => {
             console.log("Received answer:", answer);
-            peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+
+            // Create peer connection if it doesn't exist
+            let peer = peerConnections[peerid];
+            if (!peer) {
+                peer = createPeerConnection(peerid);
+            }
+
+            peer.setRemoteDescription(new RTCSessionDescription(answer))
                 .then(() => {
                     remoteDescriptionSet = true;
-                    processIceCandidateQueue(); // Add queued ICE candidates
+                    processIceCandidateQueue(peer); // Add queued ICE candidates
                 })
                 .catch(err => console.error("Error setting remote description", err));
         });
 
         // Handle incoming ICE candidate
-        hubConnection.on("ReceiveIceCandidate", (peerid,candidate) => {
+        hubConnection.on("ReceiveIceCandidate", (peerid, candidate) => {
+            let peer = peerConnections[peerid];
+            if (!peer) {
+                peer = createPeerConnection(peerid);
+            }
+
             const iceCandidate = new RTCIceCandidate(candidate);
             if (remoteDescriptionSet) {
-                peerConnection.addIceCandidate(iceCandidate)
+                peer.addIceCandidate(iceCandidate)
                     .catch(err => console.error("Error adding ICE candidate", err));
             } else {
                 iceCandidateQueue.push(iceCandidate); // Queue ICE candidates
@@ -138,10 +158,10 @@
         });
 
         // Process queued ICE candidates
-        function processIceCandidateQueue() {
+        function processIceCandidateQueue(peer) {
             while (iceCandidateQueue.length > 0) {
                 const candidate = iceCandidateQueue.shift();
-                peerConnection.addIceCandidate(candidate)
+                peer.addIceCandidate(candidate)
                     .catch(err => console.error("Error adding queued ICE candidate", err));
             }
         }
