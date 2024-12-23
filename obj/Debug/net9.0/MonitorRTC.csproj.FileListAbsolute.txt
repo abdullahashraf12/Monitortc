@@ -138,6 +138,7 @@ C:\Users\Abdullah Ashraf\source\repos\MonitorRTC\MonitorRTC\obj\Debug\net9.0\Mon
 C:\Users\Abdullah Ashraf\source\repos\MonitorRTC\MonitorRTC\obj\Debug\net9.0\MonitorRTC.MvcApplicationPartsAssemblyInfo.cache
 C:\Users\Abdullah Ashraf\source\repos\MonitorRTC\MonitorRTC\obj\Debug\net9.0\MonitorRTC.RazorAssemblyInfo.cache
 C:\Users\Abdullah Ashraf\source\repos\MonitorRTC\MonitorRTC\obj\Debug\net9.0\MonitorRTC.RazorAssemblyInfo.cs
+C:\Users\Abdullah Ashraf\source\repos\MonitorRTC\MonitorRTC\obj\Debug\net9.0\MonitorRTC.sourcelink.json
 C:\Users\Abdullah Ashraf\source\repos\MonitorRTC\MonitorRTC\obj\Debug\net9.0\scopedcss\Views\Shared\_Layout.cshtml.rz.scp.css
 C:\Users\Abdullah Ashraf\source\repos\MonitorRTC\MonitorRTC\obj\Debug\net9.0\scopedcss\bundle\MonitorRTC.styles.css
 C:\Users\Abdullah Ashraf\source\repos\MonitorRTC\MonitorRTC\obj\Debug\net9.0\scopedcss\projectbundle\MonitorRTC.bundle.scp.css

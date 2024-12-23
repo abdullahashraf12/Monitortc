@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MonitorRTC")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+43df572968eac18e824ae187d1b75f8dddd0de50")]
 [assembly: System.Reflection.AssemblyProductAttribute("MonitorRTC")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MonitorRTC")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
